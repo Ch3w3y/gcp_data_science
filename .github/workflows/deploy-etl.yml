@@ -63,7 +63,6 @@ jobs:
             --set-env-vars="BQ_DATASET_ID=${{ env.BQ_DATASET_ID }}" \
             --set-env-vars="GCS_MOUNT_PATH=/mnt/gcs"
 
-      - name: Execute Cloud Run Job (If scheduled or dispatched)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      - name: Execute Cloud Run Job
         run: |
           gcloud run jobs execute ${{ env.JOB_NAME }} --region ${{ env.REGION }} --wait

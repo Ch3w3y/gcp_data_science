@@ -20,5 +20,5 @@ COPY src/ /app/src/
 # Adjust PYTHONPATH so src module can be resolved
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-# Run the pipeline
-CMD ["python", "src/main_pipeline.py"]
+# Run both stages: download (main_pipeline.py) then parse/build (main_parser.py)
+CMD ["python", "src/run_all.py"]
