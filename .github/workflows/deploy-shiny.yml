@@ -14,6 +14,7 @@ env:
   REGION: europe-west2 
   SERVICE_NAME: trud-dashboard
   AR_REPO: rpydatasci
+  GCS_BUCKET: r-projects-test # Ensure this bucket exists in GCP
 
 jobs:
   deploy:
@@ -48,4 +49,7 @@ jobs:
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
             --port 8080 \
+            --execution-environment gen2 \
+            --add-volume "name=gcs-volume,type=cloud-storage,bucket=${{ env.GCS_BUCKET }}" \
+            --add-volume-mount "volume=gcs-volume,mount-path=/mnt/gcs" \
             --set-env-vars="GCS_MOUNT_PATH=/mnt/gcs"

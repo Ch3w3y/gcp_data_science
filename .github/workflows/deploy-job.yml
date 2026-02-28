@@ -20,6 +20,7 @@ env:
   JOB_NAME: trud-data-pipeline
   AR_REPO: rpydatasci
   BQ_DATASET_ID: trud_data
+  GCS_BUCKET: r-projects-test # Ensure this bucket exists in GCP
 
 jobs:
   deploy-and-run:
@@ -57,6 +58,9 @@ jobs:
             --tasks 1 \
             --max-retries 1 \
             --task-timeout 60m \
+            --execution-environment gen2 \
+            --add-volume "name=gcs-volume,type=cloud-storage,bucket=${{ env.GCS_BUCKET }}" \
+            --add-volume-mount "volume=gcs-volume,mount-path=/mnt/gcs" \
             --set-env-vars="TRUD_API_KEY=${{ secrets.TRUD_API_KEY }}" \
             --set-env-vars="BQ_DATASET_ID=${{ env.BQ_DATASET_ID }}" \
             --set-env-vars="GCS_MOUNT_PATH=/mnt/gcs"
