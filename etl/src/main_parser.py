@@ -114,7 +114,7 @@ def parse_vmp_dataframe(path: str) -> pd.DataFrame:
 
                 rows.append({
                     "vpid": get("VPID"),                 # SNOMED concept ID
-                    "vmp_name": get("NM"),
+                    "vmp_nm": get("NM"),
                     "vtmid": get("VTMID"),
                     "vpid_prev": get("VPIDPREV")
                 })
@@ -240,7 +240,7 @@ def build_spine():
     print("Applying custom fallback mappings for missing DDDs...")
     for key, mapping in custom_ddd_mapping.items():
         # Find rows where the VMP name contains our target drug AND the DDD is currently missing
-        mask = (merged["vmp_name"].str.lower().str.contains(key, na=False)) & (merged["ddd"].isna())
+        mask = (merged["vmp_nm"].str.lower().str.contains(key, na=False)) & (merged["ddd"].isna())
         
         # Apply the fallback values
         merged.loc[mask, "ddd"] = mapping["ddd"]
