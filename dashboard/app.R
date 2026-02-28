@@ -46,6 +46,7 @@ theme_dmd <- function() {
 
 status_colours <- c(
   "ATC + BNF" = "#2E7D32",
+  "ATC only"  = "#1976D2",
   "BNF only"  = "#F57C00",
   "Unmapped"  = "#C62828"
 )
@@ -93,6 +94,14 @@ ui <- page_navbar(
       card_header("Unmapped Antibiotic Agents"),
       p("These VMPs have a BNF code indicating they are antibacterials (0501...) but lack an ATC code."),
       DTOutput("table_missing_abx")
+    )
+  ),
+
+  nav_panel("DDD Explorer",
+    card(
+      card_header("Search DDD Values"),
+      p("Search for an ATC code or drug name to view its Defined Daily Dose (DDD), Unit of Measure (UOM), and the normalised value in milligrams."),
+      DTOutput("table_ddd_search")
     )
   ),
 
@@ -346,10 +355,38 @@ server <- function(input, output, session) {
       
     datatable(
       abx, 
-      colnames = c("VPID", "VMP Name", "BNF Code", "Mapping Status"),
+      colnames = c("Virtual Product ID (VPID)", "Virtual Medicinal Product (VMP) Name", "British National Formulary (BNF) Code", "Current NHS Mapping Status"),
       options = list(pageLength = 10, scrollX = TRUE),
       rownames = FALSE
     )
+  })
+  
+  output$table_ddd_search <- renderDT({
+    df <- dataset()
+    
+    # Safely select columns, filling with NA if pipeline hasn't run the latest update yet
+    cols_to_show <- c("vpid", "vmp_nm", "atc_code", "bnf_code", "ddd")
+    
+    if("ddd_uom" %in% names(df)) cols_to_show <- c(cols_to_show, "ddd_uom")
+    if("ddd_mg" %in% names(df)) cols_to_show <- c(cols_to_show, "ddd_mg")
+    
+    search_df <- df %>%
+      select(all_of(cols_to_show)) %>%
+      arrange(vmp_nm)
+      
+    # Dynamic column names based on available columns
+    col_names <- c("Virtual Product ID (VPID)", "Virtual Medicinal Product (VMP) Name", "Anatomical Therapeutic Chemical (ATC) Code", "British National Formulary (BNF) Code", "Defined Daily Dose (DDD)")
+    if("ddd_uom" %in% names(df)) col_names <- c(col_names, "Unit of Measure (UOM)")
+    if("ddd_mg" %in% names(df)) col_names <- c(col_names, "Normalised DDD Value (Milligrams)")
+      
+    datatable(
+      search_df,
+      colnames = col_names,
+      options = list(pageLength = 15, scrollX = TRUE, searchHighlight = TRUE),
+      rownames = FALSE,
+      filter = "top"
+    ) %>%
+      formatRound(columns = "Normalised DDD Value (Milligrams)", digits = 2) # Will format if column exists
   })
 }
 

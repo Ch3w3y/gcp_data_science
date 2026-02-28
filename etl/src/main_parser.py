@@ -43,6 +43,34 @@ def strip_namespace(tag):
     """
     return tag.split("}")[-1]
 
+def normalise_ddd_to_mg(val, uom):
+    """
+    Normalise a DDD value to milligrams (mg) based on its Unit of Measure.
+
+    Args:
+        val (float): The numeric DDD value.
+        uom (str): The unit of measure (e.g., 'g', 'mg', 'microgram').
+
+    Returns:
+        float or None: The calculated value in mg, or None if conversion is not possible.
+    """
+    if pd.isna(val) or val is None:
+        return None
+        
+    uom_clean = str(uom).strip().lower()
+        
+    if uom_clean == "mg":
+        return float(val)
+    elif uom_clean == "g":
+        return float(val) * 1000.0
+    elif uom_clean in ("microgram", "mcg"):
+        return float(val) / 1000.0
+        
+    # For Million Units (MU) or Units (U), there is no direct mass conversion 
+    # without knowing the specific drug substance. They are left as None.
+    return None
+
+
 
 # ─────────────────────────────────────────────────────────────
 # Parse VMP (Item 24)
@@ -226,25 +254,9 @@ def build_spine():
     # ─────────────────────────────────────────────────────────────
     # Normalise DDD to milligrams (mg) where possible
     # ─────────────────────────────────────────────────────────────
-    def get_ddd_mg(row):
-        val = row['ddd']
-        uom = str(row['ddd_uom']).strip().lower()
-        if pd.isna(val):
-            return None
-            
-        if uom == "mg":
-            return val
-        elif uom == "g":
-            return val * 1000.0
-        elif uom == "microgram" or uom == "mcg":
-            return val / 1000.0
-        # For Million Units (MU) or Units (U), there is no direct mass conversion 
-        # without knowing the specific drug substance. They are left as None/NaN for mg.
-        return None
-
     if "ddd_uom" in merged.columns:
         print("Normalising DDD values to mg...")
-        merged["ddd_mg"] = merged.apply(get_ddd_mg, axis=1)
+        merged["ddd_mg"] = merged.apply(lambda row: normalise_ddd_to_mg(row["ddd"], row["ddd_uom"]), axis=1)
 
     print("Final row count:", len(merged))
     print("With ATC codes:", merged["atc_code"].notna().sum())

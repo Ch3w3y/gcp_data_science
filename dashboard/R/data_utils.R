@@ -25,8 +25,9 @@ prepare_dmd_data <- function(file_path) {
       mapping_status = dplyr::case_when(
         has_atc & has_bnf ~ "ATC + BNF",
         has_bnf & !has_atc ~ "BNF only",
+        has_atc & !has_bnf ~ "ATC only",
         !has_bnf & !has_atc ~ "Unmapped"
-      ) %>% factor(levels = c("ATC + BNF", "BNF only", "Unmapped")),
+      ) %>% factor(levels = c("ATC + BNF", "ATC only", "BNF only", "Unmapped")),
       
       is_antibiotic = stringr::str_starts(atc_code, "J01") | stringr::str_starts(bnf_code, "0501")
     )
