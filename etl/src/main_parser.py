@@ -227,6 +227,16 @@ def build_spine():
     merged["ddd"] = pd.to_numeric(merged["ddd"], errors="coerce")
     
     # ─────────────────────────────────────────────────────────────
+    # Default ddd_uom to "mg" when absent
+    # ─────────────────────────────────────────────────────────────
+    # The TRUD Item 25 XML rarely includes a DDD_UOM tag explicitly.
+    # Based on the WHO ATC/DDD standard used by NHS TRUD, DDD values
+    # are expressed in mg when no unit is tagged. Default empty strings to "mg".
+    if "ddd_uom" in merged.columns:
+        merged["ddd_uom"] = merged["ddd_uom"].replace("", None)
+        merged["ddd_uom"] = merged["ddd_uom"].fillna("mg")
+    
+    # ─────────────────────────────────────────────────────────────
     # Custom fallback mapping for known missing DDDs
     # ─────────────────────────────────────────────────────────────
     # This dictionary allows patching gaps in the TRUD dataset by applying 
