@@ -364,29 +364,44 @@ server <- function(input, output, session) {
   output$table_ddd_search <- renderDT({
     df <- dataset()
     
-    # Safely select columns, filling with NA if pipeline hasn't run the latest update yet
+    # Base columns
     cols_to_show <- c("vpid", "vmp_nm", "atc_code", "bnf_code", "ddd")
+    col_names <- c(
+      "vpid" = "Virtual Product ID (VPID)", 
+      "vmp_nm" = "Virtual Medicinal Product (VMP) Name", 
+      "atc_code" = "Anatomical Therapeutic Chemical (ATC) Code", 
+      "bnf_code" = "British National Formulary (BNF) Code", 
+      "ddd" = "Defined Daily Dose (DDD)"
+    )
     
-    if("ddd_uom" %in% names(df)) cols_to_show <- c(cols_to_show, "ddd_uom")
-    if("ddd_mg" %in% names(df)) cols_to_show <- c(cols_to_show, "ddd_mg")
+    if("ddd_uom" %in% names(df)) {
+      cols_to_show <- c(cols_to_show, "ddd_uom")
+      col_names["ddd_uom"] <- "Unit of Measure (UOM)"
+    }
+    if("ddd_mg" %in% names(df)) {
+      cols_to_show <- c(cols_to_show, "ddd_mg")
+      col_names["ddd_mg"] <- "Normalised DDD Value (Milligrams)"
+    }
     
     search_df <- df %>%
       select(all_of(cols_to_show)) %>%
       arrange(vmp_nm)
       
-    # Dynamic column names based on available columns
-    col_names <- c("Virtual Product ID (VPID)", "Virtual Medicinal Product (VMP) Name", "Anatomical Therapeutic Chemical (ATC) Code", "British National Formulary (BNF) Code", "Defined Daily Dose (DDD)")
-    if("ddd_uom" %in% names(df)) col_names <- c(col_names, "Unit of Measure (UOM)")
-    if("ddd_mg" %in% names(df)) col_names <- c(col_names, "Normalised DDD Value (Milligrams)")
+    # Rename for DT explicitly using dplyr's rename to prevent colnames length mismatches
+    search_df <- search_df %>% rename(any_of(col_names))
       
-    datatable(
+    dt <- datatable(
       search_df,
-      colnames = col_names,
       options = list(pageLength = 15, scrollX = TRUE, searchHighlight = TRUE),
       rownames = FALSE,
       filter = "top"
-    ) %>%
-      formatRound(columns = "Normalised DDD Value (Milligrams)", digits = 2) # Will format if column exists
+    )
+    
+    if("Normalised DDD Value (Milligrams)" %in% names(search_df)) {
+      dt <- dt %>% formatRound(columns = "Normalised DDD Value (Milligrams)", digits = 2)
+    }
+    
+    dt
   })
 }
 
