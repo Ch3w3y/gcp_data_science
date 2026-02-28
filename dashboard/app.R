@@ -364,12 +364,12 @@ server <- function(input, output, session) {
   output$table_ddd_search <- renderDT({
     df <- dataset()
     
-    # 1. Select the grouping columns that exist
+    # 1. Base grouping columns
     grp_cols <- c("atc_code", "ddd")
     if("ddd_uom" %in% names(df)) grp_cols <- c(grp_cols, "ddd_uom")
     if("ddd_mg" %in% names(df)) grp_cols <- c(grp_cols, "ddd_mg")
     
-    # 2. Group by unique ATC/DDD combinations and aggregate searchable drug names
+    # 2. Group and summarize
     search_df <- df %>%
       filter(!is.na(atc_code)) %>%
       group_by(across(all_of(grp_cols))) %>%
@@ -379,30 +379,30 @@ server <- function(input, output, session) {
       ) %>%
       arrange(atc_code)
       
-    # 3. Dynamic column names mapping
-    col_names <- c(
-      "atc_code" = "Anatomical Therapeutic Chemical (ATC) Code", 
-      "ddd" = "Defined Daily Dose (DDD)",
-      "associated_drugs" = "Associated Drug Names (Searchable)"
+    # Clean tibble properties (safeguard against json serialization issues)
+    search_df <- as.data.frame(search_df)
+    
+    # 3. Use standard DT colnames replacement (passing an unnamed array matches by position)
+    display_names <- c(
+        "ATC Code", 
+        "Defined Daily Dose (DDD)"
     )
-    if("ddd_uom" %in% names(df)) col_names["ddd_uom"] <- "Unit of Measure (UOM)"
-    if("ddd_mg" %in% names(df)) col_names["ddd_mg"] <- "Normalised DDD Value (Milligrams)"
+    if("ddd_uom" %in% names(df)) display_names <- c(display_names, "Unit of Measure")
+    if("ddd_mg" %in% names(df)) display_names <- c(display_names, "Normalised (mg)")
     
-    # Ensure correct column order
-    search_df <- search_df %>% select(all_of(names(col_names)))
+    display_names <- c(display_names, "Associated Drug Names (Searchable)")
     
-    # Rename for DT safely to prevent JS rendering errors on the frontend
-    names(search_df) <- unname(col_names[names(search_df)])
-      
     dt <- datatable(
       search_df,
+      colnames = display_names,
       options = list(pageLength = 15, scrollX = TRUE, searchHighlight = TRUE),
       rownames = FALSE,
       filter = "top"
     )
     
-    if("Normalised DDD Value (Milligrams)" %in% names(search_df)) {
-      dt <- dt %>% formatRound(columns = "Normalised DDD Value (Milligrams)", digits = 2)
+    if("ddd_mg" %in% names(search_df)) {
+      # Use the real dataframe name for formatting!
+      dt <- dt %>% formatRound(columns = "ddd_mg", digits = 2)
     }
     
     dt
