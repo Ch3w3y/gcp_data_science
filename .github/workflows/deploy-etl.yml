@@ -1,4 +1,4 @@
-name: Deploy Data Pipeline as Cloud Run Job
+name: Deploy Data Pipeline as Cloud Run Job v2
 
 on:
   schedule:
