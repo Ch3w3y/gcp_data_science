@@ -364,29 +364,33 @@ server <- function(input, output, session) {
   output$table_ddd_search <- renderDT({
     df <- dataset()
     
-    # Base columns
-    cols_to_show <- c("vpid", "vmp_nm", "atc_code", "bnf_code", "ddd")
-    col_names <- c(
-      "vpid" = "Virtual Product ID (VPID)", 
-      "vmp_nm" = "Virtual Medicinal Product (VMP) Name", 
-      "atc_code" = "Anatomical Therapeutic Chemical (ATC) Code", 
-      "bnf_code" = "British National Formulary (BNF) Code", 
-      "ddd" = "Defined Daily Dose (DDD)"
-    )
+    # 1. Select the grouping columns that exist
+    grp_cols <- c("atc_code", "ddd")
+    if("ddd_uom" %in% names(df)) grp_cols <- c(grp_cols, "ddd_uom")
+    if("ddd_mg" %in% names(df)) grp_cols <- c(grp_cols, "ddd_mg")
     
-    if("ddd_uom" %in% names(df)) {
-      cols_to_show <- c(cols_to_show, "ddd_uom")
-      col_names["ddd_uom"] <- "Unit of Measure (UOM)"
-    }
-    if("ddd_mg" %in% names(df)) {
-      cols_to_show <- c(cols_to_show, "ddd_mg")
-      col_names["ddd_mg"] <- "Normalised DDD Value (Milligrams)"
-    }
-    
+    # 2. Group by unique ATC/DDD combinations and aggregate searchable drug names
     search_df <- df %>%
-      select(all_of(cols_to_show)) %>%
-      arrange(vmp_nm)
+      filter(!is.na(atc_code)) %>%
+      group_by(across(all_of(grp_cols))) %>%
+      summarise(
+        associated_drugs = paste(unique(vmp_nm[!is.na(vmp_nm) & vmp_nm != ""]), collapse = " | "),
+        .groups = "drop"
+      ) %>%
+      arrange(atc_code)
       
+    # 3. Dynamic column names mapping
+    col_names <- c(
+      "atc_code" = "Anatomical Therapeutic Chemical (ATC) Code", 
+      "ddd" = "Defined Daily Dose (DDD)",
+      "associated_drugs" = "Associated Drug Names (Searchable)"
+    )
+    if("ddd_uom" %in% names(df)) col_names["ddd_uom"] <- "Unit of Measure (UOM)"
+    if("ddd_mg" %in% names(df)) col_names["ddd_mg"] <- "Normalised DDD Value (Milligrams)"
+    
+    # Ensure correct column order
+    search_df <- search_df %>% select(all_of(names(col_names)))
+    
     # Rename for DT safely to prevent JS rendering errors on the frontend
     names(search_df) <- unname(col_names[names(search_df)])
       
