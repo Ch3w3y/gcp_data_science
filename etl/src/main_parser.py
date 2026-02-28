@@ -157,6 +157,7 @@ def parse_bnf_dataframe(path: str) -> pd.DataFrame:
         raise RuntimeError("No f_bnf XML files found in Item 25.")
 
     rows = []
+    uom_debug_logged = False
 
     for file in files:
         print(f"Parsing BNF file: {file}")
@@ -172,12 +173,22 @@ def parse_bnf_dataframe(path: str) -> pd.DataFrame:
                     el = elem.find(tag)
                     return el.text.strip() if el is not None and el.text else ""
 
+                # Try both tag names: DDD_UOM (older schema) and DDD_UOMCD (newer schema)
+                ddd_uom_val = get("DDD_UOM") or get("DDD_UOMCD")
+                
+                # Log the first row's raw XML child tags to help diagnose schema
+                if not uom_debug_logged and get("DDD"):
+                    child_tags = [strip_namespace(c.tag) for c in elem]
+                    print(f"[DEBUG] First DDD-bearing record child tags: {child_tags}")
+                    print(f"[DEBUG] DDD={get('DDD')}, DDD_UOM='{get('DDD_UOM')}', DDD_UOMCD='{get('DDD_UOMCD')}'")
+                    uom_debug_logged = True
+
                 rows.append({
                     "vpid": vpid_el.text.strip(),
                     "bnf_code": get("BNF_CODE"),
                     "atc_code": get("ATC"),
                     "ddd": get("DDD"),
-                    "ddd_uom": get("DDD_UOM")
+                    "ddd_uom": ddd_uom_val
                 })
 
                 elem.clear()
@@ -187,7 +198,10 @@ def parse_bnf_dataframe(path: str) -> pd.DataFrame:
     if df.empty:
         raise RuntimeError("BNF dataframe is empty.")
 
+    # Log UOM distribution to understand source data
+    uom_counts = df["ddd_uom"].value_counts(dropna=False).head(10)
     print(f"Loaded {len(df)} BNF records.")
+    print(f"DDD_UOM value distribution (top 10):\n{uom_counts}")
     return df
 
 
