@@ -12,6 +12,7 @@ on:
       - 'main_pipeline.py'
       - 'Dockerfile'
       - 'requirements.txt'
+      - '.github/workflows/deploy-job.yml'
   workflow_dispatch:
 
 env:

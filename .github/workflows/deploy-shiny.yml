@@ -7,6 +7,7 @@ on:
     paths:
       - 'app.R'
       - 'Dockerfile.shiny'
+      - '.github/workflows/deploy-shiny.yml'
   workflow_dispatch:
 
 env:
