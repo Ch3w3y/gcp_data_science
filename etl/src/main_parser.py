@@ -43,6 +43,23 @@ def strip_namespace(tag):
     """
     return tag.split("}")[-1]
 
+# ─────────────────────────────────────────────────────────────
+# SNOMED CT unit of measure code → human-readable string
+# Source: dm+d technical specification / SNOMED CT browser
+# ─────────────────────────────────────────────────────────────
+SNOMED_UNIT_MAP = {
+    "258684004": "mg",          # milligram
+    "258682000": "g",           # gram
+    "258685003": "kg",          # kilogram
+    "258676002": "microgram",   # microgram (µg)
+    "258717005": "ng",          # nanogram
+    "258774008": "mL",          # millilitre
+    "258773002": "L",           # litre
+    "396186001": "MU",          # million units
+    "258664008": "U",           # unit
+    "258718000": "mmol",        # millimole
+}
+
 def normalise_ddd_to_mg(val, uom):
     """
     Normalise a DDD value to milligrams (mg) based on its Unit of Measure.
@@ -63,11 +80,15 @@ def normalise_ddd_to_mg(val, uom):
         return float(val)
     elif uom_clean == "g":
         return float(val) * 1000.0
-    elif uom_clean in ("microgram", "mcg"):
+    elif uom_clean == "kg":
+        return float(val) * 1_000_000.0
+    elif uom_clean in ("microgram", "mcg", "µg"):
         return float(val) / 1000.0
+    elif uom_clean == "ng":
+        return float(val) / 1_000_000.0
         
-    # For Million Units (MU) or Units (U), there is no direct mass conversion 
-    # without knowing the specific drug substance. They are left as None.
+    # For volume units (mL, L), millimoles, or Units (U/MU), there is no direct
+    # mass conversion without knowing the specific drug substance.
     return None
 
 
@@ -173,8 +194,10 @@ def parse_bnf_dataframe(path: str) -> pd.DataFrame:
                     el = elem.find(tag)
                     return el.text.strip() if el is not None and el.text else ""
 
-                # Try both tag names: DDD_UOM (older schema) and DDD_UOMCD (newer schema)
-                ddd_uom_val = get("DDD_UOM") or get("DDD_UOMCD")
+                # Try DDD_UOMCD first (SNOMED CT code, newer schema), then DDD_UOM (older plain-text schema)
+                raw_uom = get("DDD_UOMCD") or get("DDD_UOM")
+                # Translate SNOMED CT concept ID to human-readable unit string
+                ddd_uom_val = SNOMED_UNIT_MAP.get(raw_uom, raw_uom)
                 
                 # Log the first row's raw XML child tags to help diagnose schema
                 if not uom_debug_logged and get("DDD"):
