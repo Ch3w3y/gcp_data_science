@@ -16,5 +16,6 @@ install.packages(c(
   "forcats",
   "DT",
   "testthat",
-  "roxygen2"
+  "roxygen2",
+  "dotenv"
 ))
