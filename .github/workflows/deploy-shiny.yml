@@ -1,0 +1,51 @@
+name: Deploy Shiny Dashboard to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app.R'
+      - 'Dockerfile.shiny'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: smart-shoreline-484407-p2 
+  REGION: europe-west2 
+  SERVICE_NAME: trud-dashboard
+  AR_REPO: rpydatasci
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+          
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/shiny-image:${{ github.sha }}"
+          docker build -t $IMAGE_PATH -f Dockerfile.shiny .
+          docker push $IMAGE_PATH
+          
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/shiny-image:${{ github.sha }}"
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image $IMAGE_PATH \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars="GCS_MOUNT_PATH=/mnt/gcs"

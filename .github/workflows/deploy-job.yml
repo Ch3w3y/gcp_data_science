@@ -1,0 +1,67 @@
+name: Deploy Data Pipeline as Cloud Run Job
+
+on:
+  schedule:
+    # Run every Tuesday at 6:00 AM UTC (TRUD released on Mondays)
+    - cron: '0 6 * * 2'
+  push:
+    branches:
+      - main
+    paths:
+      - 'main_parser.py'
+      - 'main_pipeline.py'
+      - 'Dockerfile'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: smart-shoreline-484407-p2 
+  REGION: europe-west2 
+  JOB_NAME: trud-data-pipeline
+  AR_REPO: rpydatasci
+  BQ_DATASET_ID: trud_data
+
+jobs:
+  deploy-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+          
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/pipeline-image:${{ github.sha }}"
+          docker build -t $IMAGE_PATH -f Dockerfile .
+          docker push $IMAGE_PATH
+          
+      - name: Deploy Cloud Run Job
+        run: |
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/pipeline-image:${{ github.sha }}"
+          
+          # Deploy the job
+          gcloud run jobs deploy ${{ env.JOB_NAME }} \
+            --image $IMAGE_PATH \
+            --region ${{ env.REGION }} \
+            --tasks 1 \
+            --max-retries 1 \
+            --task-timeout 60m \
+            --set-env-vars="TRUD_API_KEY=${{ secrets.TRUD_API_KEY }}" \
+            --set-env-vars="BQ_DATASET_ID=${{ env.BQ_DATASET_ID }}" \
+            --set-env-vars="GCS_MOUNT_PATH=/mnt/gcs"
+
+      - name: Execute Cloud Run Job (If scheduled or dispatched)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          gcloud run jobs execute ${{ env.JOB_NAME }} --region ${{ env.REGION }} --wait

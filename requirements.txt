@@ -1,0 +1,10 @@
+pandas
+pyarrow
+duckdb
+requests
+lxml
+python-dotenv
+google-cloud-bigquery
+db-dtypes
+
+

@@ -1,0 +1,31 @@
+# Use a recent R Shiny image
+FROM rocker/shiny-verse:4.4.2
+
+# System dependencies for bslib, arrow, etc.
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjpeg-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Shiny dependencies
+RUN R -e "install.packages(c('shiny', 'bslib', 'arrow', 'dplyr', 'tidyr', 'ggplot2', 'scales', 'patchwork', 'stringr', 'forcats'), repos='https://cloud.r-project.org/')"
+
+# Set working directory to app root
+WORKDIR /app
+
+# Copy shiny application Script
+COPY app.R /app/app.R
+
+# Expose the Cloud Run default port
+EXPOSE 8080
+
+# Run Shiny Server configured for Cloud Run
+CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=8080)"]
