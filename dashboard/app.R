@@ -387,8 +387,8 @@ server <- function(input, output, session) {
       select(all_of(cols_to_show)) %>%
       arrange(vmp_nm)
       
-    # Rename for DT explicitly using dplyr's rename to prevent colnames length mismatches
-    search_df <- search_df %>% rename(any_of(col_names))
+    # Rename for DT safely to prevent JS rendering errors on the frontend
+    names(search_df) <- unname(col_names[names(search_df)])
       
     dt <- datatable(
       search_df,
