@@ -2,6 +2,10 @@ import os
 import requests
 import zipfile
 import glob
+import dotenv
+
+
+dotenv.load_dotenv()
 
 # Configuration from Environment Variables
 TRUD_KEY = os.getenv("TRUD_API_KEY")

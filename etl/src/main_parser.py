@@ -4,6 +4,9 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 import duckdb
 from google.cloud import bigquery
+import dotenv
+
+dotenv.load_dotenv()
 
 # ─────────────────────────────────────────────────────────────
 # Configuration
