@@ -29,6 +29,15 @@ BQ_DATASET_ID = os.getenv("BQ_DATASET_ID", "trud_dataset")
 # ─────────────────────────────────────────────────────────────
 
 def strip_namespace(tag):
+    """
+    Remove XML namespace prefix from an ElementTree tag.
+
+    Args:
+        tag (str): The full XML tag string, potentially containing a namespace.
+
+    Returns:
+        str: The tag string without the namespace prefix.
+    """
     return tag.split("}")[-1]
 
 
@@ -37,6 +46,22 @@ def strip_namespace(tag):
 # ─────────────────────────────────────────────────────────────
 
 def parse_vmp_dataframe(path: str) -> pd.DataFrame:
+    """
+    Parse TRUD Item 24 Virtual Medicinal Product (VMP) XML files into a DataFrame.
+
+    Iterates through XMLs matching the pattern `f_vmp2*.xml` found within the
+    provided directory path. Extracts SNOMED VPID, VMP Name, VTMID, and VPIDPREV
+    nodes into a normalized structure.
+
+    Args:
+        path (str): The local or mounted path containing Item 24 XML files.
+
+    Returns:
+        pd.DataFrame: A populated DataFrame containing VMP reference data.
+
+    Raises:
+        RuntimeError: If no matching XML files are found or the resulting DataFrame is empty.
+    """
     pattern = os.path.join(path, "**/f_vmp2*.xml")
     files = glob.glob(pattern, recursive=True)
 
@@ -79,6 +104,21 @@ def parse_vmp_dataframe(path: str) -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────
 
 def parse_bnf_dataframe(path: str) -> pd.DataFrame:
+    """
+    Parse TRUD Item 25 BNF/ATC Supplementary XML files into a DataFrame.
+
+    Searches for and iteratively parses XMLs matching `f_bnf*.xml` to extract
+    BNF classification and ATC code linkage to the SNOMED VPID.
+
+    Args:
+        path (str): The local or mounted path containing Item 25 XML files.
+
+    Returns:
+        pd.DataFrame: A populated DataFrame containing VPID, BNF Code, ATC code, and DDD.
+
+    Raises:
+        RuntimeError: If no matching XML files are found or the resulting DataFrame is empty.
+    """
     pattern = os.path.join(path, "**/f_bnf*.xml")
     files = glob.glob(pattern, recursive=True)
 
@@ -124,6 +164,17 @@ def parse_bnf_dataframe(path: str) -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────
 
 def build_spine():
+    """
+    Execute the core data engineering transformation to create the analytical spine.
+
+    This function calls the VMP and BNF parsing logic, performs a left join
+    to append BNF and ATC classification codes onto the primary SNOMED VMP dataset,
+    and enforces appropriate data types. Finally, it exports data into Parquet,
+    DuckDB, and Google BigQuery as a resilient multi-format target architecture.
+
+    Returns:
+        None
+    """
 
     print("Parsing Item 24 (VMP)...")
     vmp_df = parse_vmp_dataframe(ITEM_24_PATH)

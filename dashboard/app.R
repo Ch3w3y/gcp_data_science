@@ -8,6 +8,7 @@ library(scales)
 library(patchwork)
 library(stringr)
 library(forcats)
+library(DT)
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 # We read from the GCS bucket mount path or a local 'data' folder for testing
@@ -82,6 +83,19 @@ ui <- page_navbar(
     card(card_header("ATC Level 4 Chemical Subgroup"), plotOutput("plot_abx_l4", height = "600px"))
   ),
   
+  nav_panel("Antibiotic Gap Analysis",
+    layout_columns(
+      card(card_header("Expected vs Mapped Antibiotics"), plotOutput("plot_gap_coverage", height = "300px")),
+      card(card_header("Missing Map Status"), plotOutput("plot_gap_status", height = "300px")),
+      col_widths = c(6, 6)
+    ),
+    card(
+      card_header("Unmapped Antibiotic Agents"),
+      p("These VMPs have a BNF code indicating they are antibacterials (0501...) but lack an ATC code."),
+      DTOutput("table_missing_abx")
+    )
+  ),
+
   nav_panel("Raw Data Settings",
     card(
       card_header("Data File Location"),
@@ -90,31 +104,15 @@ ui <- page_navbar(
   )
 )
 
+source("R/data_utils.R")
+
 # ── Shiny Server ───────────────────────────────────────────────────────────────
 server <- function(input, output, session) {
   
   # Reactive data load
   dataset <- reactive({
     req(file.exists(spine_parquet))
-    df <- read_parquet(spine_parquet) %>%
-      mutate(
-        atc_level1_code = str_sub(atc_code, 1, 1),
-        atc_level2_code = str_sub(atc_code, 1, 3),
-        atc_level3_code = str_sub(atc_code, 1, 4),
-        atc_level4_code = str_sub(atc_code, 1, 5),
-        
-        has_bnf = !is.na(bnf_code) & bnf_code != "",
-        has_atc = !is.na(atc_code) & atc_code != "",
-        
-        mapping_status = case_when(
-          has_atc & has_bnf ~ "ATC + BNF",
-          has_bnf & !has_atc ~ "BNF only",
-          !has_bnf & !has_atc ~ "Unmapped"
-        ) %>% factor(levels = c("ATC + BNF", "BNF only", "Unmapped")),
-        
-        is_antibiotic = str_starts(atc_code, "J01")
-      )
-    return(df)
+    prepare_dmd_data(spine_parquet)
   })
   
   filtered_data <- reactive({
@@ -303,6 +301,55 @@ server <- function(input, output, session) {
       ) +
       theme_dmd() +
       theme(legend.position = "right")
+  })
+  
+  # GAP ANALYSIS PLOTS & TABLE
+  output$plot_gap_coverage <- renderPlot({
+    abx <- antibiotics_data()
+    req(nrow(abx) > 0)
+    
+    gap_summary <- abx %>%
+      mutate(status = if_else(has_atc, "Mapped to ATC", "Missing ATC")) %>%
+      count(status) %>%
+      mutate(
+        pct = n / sum(n),
+        label = paste0(comma(n), "\n(", percent(pct, accuracy = 0.1), ")")
+      )
+      
+    ggplot(gap_summary, aes(x = "", y = pct, fill = status)) +
+      geom_col(width = 0.5, colour = "white", linewidth = 0.6) +
+      geom_text(aes(label = label), position = position_stack(vjust = 0.5), colour = "white", fontface = "bold", size = 4) +
+      coord_flip() +
+      scale_fill_manual(values = c("Mapped to ATC" = "#2E7D32", "Missing ATC" = "#C62828")) +
+      scale_y_continuous(labels = percent_format()) +
+      labs(title = "Antimicrobial ATC Coverage", x = NULL, y = "Proportion of Expected Antibiotics", fill = "Status") +
+      theme_dmd()
+  })
+  
+  output$plot_gap_status <- renderPlot({
+    abx <- antibiotics_data() %>% filter(!has_atc)
+    req(nrow(abx) > 0)
+    
+    ggplot(abx, aes(x = mapping_status, fill = mapping_status)) +
+      geom_bar() +
+      scale_fill_manual(values = status_colours) +
+      scale_y_continuous(labels = comma) +
+      labs(title = "Why are they missing?", x = "Current Mapping Status", y = "Count") +
+      theme_dmd() + theme(legend.position = "none")
+  })
+  
+  output$table_missing_abx <- renderDT({
+    abx <- antibiotics_data() %>% 
+      filter(!has_atc) %>%
+      select(vpid, vmp_nm, bnf_code, mapping_status) %>%
+      arrange(vmp_nm)
+      
+    datatable(
+      abx, 
+      colnames = c("VPID", "VMP Name", "BNF Code", "Mapping Status"),
+      options = list(pageLength = 10, scrollX = TRUE),
+      rownames = FALSE
+    )
   })
 }
 

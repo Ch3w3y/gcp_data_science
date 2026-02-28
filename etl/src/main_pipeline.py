@@ -2,10 +2,6 @@ import os
 import requests
 import zipfile
 import glob
-from dotenv import load_dotenv
-
-# Load local .env if it exists
-load_dotenv()
 
 # Configuration from Environment Variables
 TRUD_KEY = os.getenv("TRUD_API_KEY")
@@ -17,8 +13,15 @@ ITEMS = ["24", "25"]
 
 def extract_nested_zips(directory_path):
     """
-    Recursively finds and extracts any nested zip files within the given directory.
-    This is necessary for item 25, which contains nested archives like the BNF zip.
+    Recursively find and extract any nested zip files within the given directory.
+
+    This function is necessary for NHS TRUD Item 25, which contains nested
+    archives (e.g., the BNF zip file is contained within the outer item 25 zip).
+    Extracts all nested zip files in-place within their respective directories.
+
+    Args:
+        directory_path (str): The absolute or relative path to the directory
+            to scan for nested zip files.
     """
     # Find all .zip files in the directory and subdirectories
     search_pattern = os.path.join(directory_path, "**", "*.zip")
@@ -44,6 +47,17 @@ def extract_nested_zips(directory_path):
             print(f"Error extracting nested zip {zip_file_path}: {e}")
 
 def process_trud():
+    """
+    Orchestrate the download and extraction of NHS TRUD datasets.
+
+    This function authenticates with the NHS TRUD API, determines the latest
+    release for specified items (Item 24: dm+d main, Item 25: BNF/ATC), downloads
+    the archive payloads into temporary storage, and extracts them into a
+    configured Google Cloud Storage bucket path (or local equivalent).
+
+    Returns:
+        None
+    """
     if not TRUD_KEY:
         print("Error: TRUD_API_KEY environment variable is not set.")
         return

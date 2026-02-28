@@ -16,13 +16,14 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Shiny dependencies
-RUN R -e "install.packages(c('shiny', 'bslib', 'arrow', 'dplyr', 'tidyr', 'ggplot2', 'scales', 'patchwork', 'stringr', 'forcats'), repos='https://cloud.r-project.org/')"
+RUN R -e "install.packages(c('shiny', 'bslib', 'arrow', 'dplyr', 'tidyr', 'ggplot2', 'scales', 'patchwork', 'stringr', 'forcats', 'DT'), repos='https://cloud.r-project.org/')"
 
 # Set working directory to app root
 WORKDIR /app
 
-# Copy shiny application Script
+# Copy shiny application Script and utilities
 COPY app.R /app/app.R
+COPY R/ /app/R/
 
 # Expose the Cloud Run default port
 EXPOSE 8080

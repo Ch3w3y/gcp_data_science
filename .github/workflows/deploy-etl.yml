@@ -8,11 +8,8 @@ on:
     branches:
       - main
     paths:
-      - 'main_parser.py'
-      - 'main_pipeline.py'
-      - 'Dockerfile'
-      - 'requirements.txt'
-      - '.github/workflows/deploy-job.yml'
+      - 'etl/**'
+      - '.github/workflows/deploy-etl.yml'
   workflow_dispatch:
 
 env:
@@ -45,7 +42,7 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/pipeline-image:${{ github.sha }}"
-          docker build -t $IMAGE_PATH -f Dockerfile .
+          docker build -t $IMAGE_PATH -f etl/Dockerfile ./etl
           docker push $IMAGE_PATH
           
       - name: Deploy Cloud Run Job

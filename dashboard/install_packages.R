@@ -10,9 +10,11 @@ install.packages(c(
   "plotly", 
   "duckdb", 
   "arrow", 
-  "dotenv",
   "stringr",
   "patchwork",
   "scales",
-  "forcats"
+  "forcats",
+  "DT",
+  "testthat",
+  "roxygen2"
 ))

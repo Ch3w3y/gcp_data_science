@@ -5,9 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'app.R'
-      - 'Dockerfile.shiny'
-      - '.github/workflows/deploy-shiny.yml'
+      - 'dashboard/**'
+      - '.github/workflows/deploy-dashboard.yml'
   workflow_dispatch:
 
 env:
@@ -39,7 +38,7 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/shiny-image:${{ github.sha }}"
-          docker build -t $IMAGE_PATH -f Dockerfile.shiny .
+          docker build -t $IMAGE_PATH -f dashboard/Dockerfile ./dashboard
           docker push $IMAGE_PATH
           
       - name: Deploy to Cloud Run
