@@ -148,7 +148,8 @@ def parse_bnf_dataframe(path: str) -> pd.DataFrame:
                     "vpid": vpid_el.text.strip(),
                     "bnf_code": get("BNF_CODE"),
                     "atc_code": get("ATC"),
-                    "ddd": get("DDD")
+                    "ddd": get("DDD"),
+                    "ddd_uom": get("DDD_UOM")
                 })
 
                 elem.clear()
@@ -196,6 +197,54 @@ def build_spine():
     merged["vpid"] = merged["vpid"].astype(str)
     merged["vtmid"] = merged["vtmid"].astype(str)
     merged["ddd"] = pd.to_numeric(merged["ddd"], errors="coerce")
+    
+    # ─────────────────────────────────────────────────────────────
+    # Custom fallback mapping for known missing DDDs
+    # ─────────────────────────────────────────────────────────────
+    # This dictionary allows patching gaps in the TRUD dataset by applying 
+    # WHO ATC/DDD standard values to Virtual Medicinal Products based on string matches.
+    custom_ddd_mapping = {
+        "co-amoxiclav": {"ddd": 3.0, "ddd_uom": "g", "atc_code": "J01CR02"},
+        "co-fluampicil": {"ddd": 2.0, "ddd_uom": "g", "atc_code": "J01CA51"},
+        "piperacillin / tazobactam": {"ddd": 14.0, "ddd_uom": "g", "atc_code": "J01CR05"}
+    }
+    
+    print("Applying custom fallback mappings for missing DDDs...")
+    for key, mapping in custom_ddd_mapping.items():
+        # Find rows where the VMP name contains our target drug AND the DDD is currently missing
+        mask = (merged["vmp_name"].str.lower().str.contains(key, na=False)) & (merged["ddd"].isna())
+        
+        # Apply the fallback values
+        merged.loc[mask, "ddd"] = mapping["ddd"]
+        
+        if "ddd_uom" in merged.columns:
+            merged.loc[mask & merged["ddd_uom"].isna(), "ddd_uom"] = mapping["ddd_uom"]
+            
+        # Optional: Also patch missing ATC code if it doesn't exist
+        merged.loc[mask & merged["atc_code"].isna(), "atc_code"] = mapping["atc_code"]
+    
+    # ─────────────────────────────────────────────────────────────
+    # Normalise DDD to milligrams (mg) where possible
+    # ─────────────────────────────────────────────────────────────
+    def get_ddd_mg(row):
+        val = row['ddd']
+        uom = str(row['ddd_uom']).strip().lower()
+        if pd.isna(val):
+            return None
+            
+        if uom == "mg":
+            return val
+        elif uom == "g":
+            return val * 1000.0
+        elif uom == "microgram" or uom == "mcg":
+            return val / 1000.0
+        # For Million Units (MU) or Units (U), there is no direct mass conversion 
+        # without knowing the specific drug substance. They are left as None/NaN for mg.
+        return None
+
+    if "ddd_uom" in merged.columns:
+        print("Normalising DDD values to mg...")
+        merged["ddd_mg"] = merged.apply(get_ddd_mg, axis=1)
 
     print("Final row count:", len(merged))
     print("With ATC codes:", merged["atc_code"].notna().sum())
