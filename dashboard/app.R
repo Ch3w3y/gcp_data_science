@@ -362,50 +362,44 @@ server <- function(input, output, session) {
   })
   
   output$table_ddd_search <- renderDT({
-    df <- dataset()
-    
-    # 1. Base grouping columns
-    grp_cols <- c("atc_code", "ddd")
-    if("ddd_uom" %in% names(df)) grp_cols <- c(grp_cols, "ddd_uom")
-    if("ddd_mg" %in% names(df)) grp_cols <- c(grp_cols, "ddd_mg")
-    
-    # 2. Group and summarize
-    search_df <- df %>%
-      filter(!is.na(atc_code)) %>%
-      group_by(across(all_of(grp_cols))) %>%
-      summarise(
-        associated_drugs = paste(unique(vmp_nm[!is.na(vmp_nm) & vmp_nm != ""]), collapse = " | "),
-        .groups = "drop"
-      ) %>%
-      arrange(atc_code)
+    tryCatch({
+      df <- dataset()
       
-    # Clean tibble properties (safeguard against json serialization issues)
-    search_df <- as.data.frame(search_df)
-    
-    # 3. Use standard DT colnames replacement (passing an unnamed array matches by position)
-    display_names <- c(
-        "ATC Code", 
-        "Defined Daily Dose (DDD)"
-    )
-    if("ddd_uom" %in% names(df)) display_names <- c(display_names, "Unit of Measure")
-    if("ddd_mg" %in% names(df)) display_names <- c(display_names, "Normalised (mg)")
-    
-    display_names <- c(display_names, "Associated Drug Names (Searchable)")
-    
-    dt <- datatable(
-      search_df,
-      colnames = display_names,
-      options = list(pageLength = 15, scrollX = TRUE, searchHighlight = TRUE),
-      rownames = FALSE,
-      filter = "top"
-    )
-    
-    if("ddd_mg" %in% names(search_df)) {
-      # Use the real dataframe name for formatting!
-      dt <- dt %>% formatRound(columns = "ddd_mg", digits = 2)
-    }
-    
-    dt
+      # Identify which optional columns are present
+      has_uom <- "ddd_uom" %in% names(df)
+      has_mg  <- "ddd_mg"  %in% names(df)
+      
+      # Build a simple summary: one row per unique ATC+DDD combination
+      grp_cols <- c("atc_code", "ddd")
+      if(has_uom) grp_cols <- c(grp_cols, "ddd_uom")
+      if(has_mg)  grp_cols <- c(grp_cols, "ddd_mg")
+      
+      search_df <- df[!is.na(df$atc_code) & df$atc_code != "", ]
+      search_df <- aggregate(
+        list(associated_drugs = search_df$vmp_nm),
+        by = search_df[grp_cols],
+        FUN = function(x) paste(unique(x[!is.na(x) & x != ""]), collapse = " | ")
+      )
+      search_df <- search_df[order(search_df$atc_code), ]
+      rownames(search_df) <- NULL
+      
+      # Build display column names to match the current columns
+      col_labels <- c("ATC Code", "Defined Daily Dose (DDD)")
+      if(has_uom) col_labels <- c(col_labels, "Unit of Measure")
+      if(has_mg)  col_labels <- c(col_labels, "Normalised (mg)")
+      col_labels <- c(col_labels, "Drug Names (Searchable)")
+      
+      datatable(
+        search_df,
+        colnames   = col_labels,
+        rownames   = FALSE,
+        filter     = "top",
+        options    = list(pageLength = 15, scrollX = TRUE)
+      )
+    }, error = function(e) {
+      # Surface the real R error in the UI so we can diagnose it
+      validate(need(FALSE, message = paste("R error in DDD table:", conditionMessage(e))))
+    })
   })
 }
 
