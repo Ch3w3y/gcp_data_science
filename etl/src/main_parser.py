@@ -50,8 +50,8 @@ def strip_namespace(tag):
 SNOMED_UNIT_MAP = {
     "258684004": "mg",          # milligram
     "258682000": "g",           # gram
-    "258685003": "kg",          # kilogram
-    "258676002": "microgram",   # microgram (µg)
+    "258685003": "microgram",   # microgram (µg) — confirmed from dm+d source
+    "258676002": "microgram",   # microgram (alternative SNOMED code)
     "258717005": "ng",          # nanogram
     "258774008": "mL",          # millilitre
     "258773002": "L",           # litre
