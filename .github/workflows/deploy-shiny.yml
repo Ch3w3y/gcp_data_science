@@ -1,4 +1,4 @@
-name: Deploy Shiny Dashboard to Cloud Run
+name: Deploy Shiny Dashboard to Cloud Run v1
 
 on:
   push:
